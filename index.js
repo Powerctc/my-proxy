@@ -27,23 +27,23 @@ app.get('/proxy', async (req, res) => {
 
         if (targetUrl.includes('.m3u8')) {
             let data = '';
-            response.data.on('data', chunk => data += chunk);
+            response.data.on('data', chunk => data += (chunk.toString()));
             response.data.on('end', () => {
                 const urlObj = new URL(targetUrl);
                 const basePath = targetUrl.substring(0, targetUrl.lastIndexOf('/') + 1);
-                const proxyBase = `https://${req.get('host')}/proxy?url=`;
+                const protocol = req.headers['x-forwarded-proto'] || 'https';
+                const proxyBase = `${protocol}://${req.get('host')}/proxy?url=`;
 
-                // Logic ပြင်လိုက်သည် - http နဲ့စတာရော၊ မစတာရော အကုန်လုံးကို Proxy ခံမည်
                 const modifiedData = data.split('\n').map(line => {
                     if (line.startsWith('#') || !line.trim()) return line;
                     
                     let fullUrl;
                     if (line.startsWith('http')) {
-                        fullUrl = line; // Full URL ဖြစ်လျှင်
+                        fullUrl = line;
                     } else if (line.startsWith('/')) {
-                        fullUrl = urlObj.origin + line; // Relative from root
+                        fullUrl = urlObj.origin + line;
                     } else {
-                        fullUrl = basePath + line; // Relative from base
+                        fullUrl = basePath + line;
                     }
                     return proxyBase + encodeURIComponent(fullUrl);
                 }).join('\n');
@@ -56,10 +56,11 @@ app.get('/proxy', async (req, res) => {
         }
 
     } catch (error) {
+        console.error(error.message);
         res.status(500).send('Proxy Error');
     }
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
